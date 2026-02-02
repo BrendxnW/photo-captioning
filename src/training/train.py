@@ -1,27 +1,27 @@
+import torch
 import torchvision.models as models
 import torch.nn as nn
 import torch.optim as optim
 from src.utils.utils import get_dataloaders
 
+device = torch.device("cuda")
 
+def main():
+    train_loader, test_loader = get_dataloaders(batch_size=64, num_workers=2)
 
-train_loader, test_loader = get_dataloaders(batch_size=64, num_workers=2)
+    resnet_model = models.resnet50(weights="IMAGENET1K_V1")
+    feat_extract = nn.Sequential(*list(resnet_model.children())[:-1])
+    feat_extract.to(device)
 
-resnet_model = models.resnet18(weights="IMAGENET1K_V1")
-feat_extract = nn.Sequential(*list(resnet_model.children())[:-1])
+    with torch.no_grad():
+        images, captions = next(iter(train_loader))
+        images = images.to(device)
 
-loss_function = nn.CrossEntropyLoss()
-optimizer = optim.Adam(resnet_model.parameters(), lr=0.001)
-running_loss = 0.0
+        feats = feat_extract(images)
+        feats = feats.reshape(images.size(0), -1)
 
-for i, (image, caption) in enumerate(get_dataloaders.train_loader):
-    output = resnet_model(image)
-    loss = loss_function(output, caption)
+    print("features shape:", feats.shape)
+    print("caption example:", captions[0])
 
-    print(f"Batch {i+1:5d} training loss: {loss.item():.4f}")
-
-    loss.backward()
-    optimizer.step()
-    optimizer.zero_grad()
-
-print("Finished Training")
+if __name__ == "__main__":
+    main()
