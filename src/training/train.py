@@ -11,23 +11,28 @@ transform = transforms.Compose([
 
 training_data = Flickr8kDataset(
     csv_file="data/Train/train.csv",
-    root="data/Images",
+    root_dir="data/Images",
     transform=transform
 )
 
 test_data = Flickr8kDataset(
     csv_file="data/Test/test.csv",
-    root="data/Images",
+    root_dir="data/Images",
     transform=transform
 )
 
 import matplotlib.pyplot as plt
 import random
+import torch
 
 idx = random.randint(0, len(training_data) - 1)
-img, label = training_data[idx]
+img, caption = training_data[idx]
 
-plt.imshow(img.permute(1,2,0))
-plt.title(training_data.classes[label])
+if isinstance(img, torch.Tensor):
+    plt.imshow(img.permute(1, 2, 0))
+else:
+    plt.imshow(img)
+
+plt.title(caption[:80])
 plt.axis("off")
 plt.show()
