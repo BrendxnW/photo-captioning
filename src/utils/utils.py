@@ -1,6 +1,7 @@
 import torch
 from torchvision import transforms
 from torch.utils.data import DataLoader
+from torch.nn.utils.rnn import pad_sequence
 from src.dataset.flickr8k_dataset import Flickr8kDataset
 
 def get_dataloaders(batch_size=64, num_workers=2):
@@ -26,7 +27,8 @@ def get_dataloaders(batch_size=64, num_workers=2):
         training_data,
         batch_size=batch_size,
         shuffle=True,
-        num_workers=num_workers
+        num_workers=num_workers,
+        collate_fn=caption_collate_fn
     )
 
     test_loader = torch.utils.data.DataLoader(
@@ -37,3 +39,15 @@ def get_dataloaders(batch_size=64, num_workers=2):
     )
 
     return train_loader, test_loader
+
+def caption_collate_fn(batch):
+    images, captions = zip(*batch)
+    images = torch.stack(images)
+
+    captions = pad_sequence(
+        captions,
+        batch_first=True,
+        padding_value=0
+    )
+
+    return images, captions
