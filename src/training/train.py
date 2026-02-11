@@ -2,10 +2,24 @@ import torch
 import torchvision.models as models
 import torch.nn as nn
 import torch.optim as optim
-from src.utils.utils import get_dataloaders, caption_collate_fn
+from utils.data_loader import get_dataloaders, caption_collate_fn
 
 class PhotoCaptioner(nn.Module):
+    """
+    Image captioning model using a frozen CNN encoder and an LSTM decoder.
+
+    The encoder extracts a feature vector from each image. These image features 
+    are projected into the decoder embedding space and then concatenated with the
+    embedded caption tokens to predict the next token at each time step.
+
+    Args:
+        encoder (nn.Module): CNN feature extractor that outputs image features.
+        vocab_size (int): Number of tokens in the vocabulary.
+    """
     def __init__(self, encoder, vocab_size):
+        """
+        Initializes the PhotoCaptioner model..
+        """
         super().__init__()
         self.encoder = encoder
         self.encoder.eval()
@@ -17,6 +31,16 @@ class PhotoCaptioner(nn.Module):
         self.fc_out = nn.Linear(512, vocab_size)
 
     def forward(self, images, captions_in):
+        """
+        Forward pass for caption generation training.
+
+        Args:
+            images (Tensor): Batch of images.
+            captions_in (Tensor): Input caption token.
+
+        Returns:
+            Tensor: Logits over the vocabulary for each timestep.
+        """
         with torch.no_grad():
             feature = self.encoder(images)
             feature = torch.flatten(1)
@@ -32,6 +56,19 @@ class PhotoCaptioner(nn.Module):
         return stats    
 
 def train_one_epoch(model, loader, optimizer, device):
+    """
+    Trains the model for a single epoch.
+
+    Iterates over the dataloader, performs a forward pass with teacher forcing,
+    computes cross-entropy loss, backpropagates, and updates model parameters.
+
+    Args:
+        model (nn.Module): The captioning model to train.
+        loader (DataLoader): Dataloader providing (images, captions) batches. 
+                             Captions are expected to be padded token index tensors.
+        optimizer (torch.optim.Optimizer): Optimizer used to update model parameters.
+        device (torch.device): Device to run training on (CPU or CUDA).
+    """
     model.train()
     loss_function = nn.CrossEntropyLoss(ignore_index=0)
 
@@ -58,6 +95,12 @@ def train_one_epoch(model, loader, optimizer, device):
     print("Finished Training")
 
 def main():
+    """
+    Entry point for training the image captioning model.
+
+    Creates the device, builds dataloaders, constructs a ResNet-based encoder,
+    initializes the PhotoCaptioner model, and trains for a fixed number of epochs.
+    """
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using: {device}")
 
