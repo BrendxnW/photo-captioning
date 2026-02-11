@@ -60,9 +60,9 @@ class PhotoCaptioner(nn.Module):
         return logits    
 
 
-def train_one_epoch(model, loader, optimizer, device):
+def train_one_epoch(model, loader, optimizer, device, pad_idx=0):
     """
-    Trains the model for a single epoch.
+    Trains the model for a single epoch for training dataset.
 
     Iterates over the dataloader, performs a forward pass with teacher forcing,
     computes cross-entropy loss, backpropagates, and updates model parameters.
@@ -73,9 +73,14 @@ def train_one_epoch(model, loader, optimizer, device):
                              Captions are expected to be padded token index tensors.
         optimizer (torch.optim.Optimizer): Optimizer used to update model parameters.
         device (torch.device): Device to run training on (CPU or CUDA).
+        pad_idx (optional): ignores the pad
     """
     model.train()
     loss_function = nn.CrossEntropyLoss(ignore_index=0)
+
+    total_loss = 0.0
+    correct = 0
+    total = 0
 
     for i, (images, captions) in enumerate(loader):
         images = images.to(device)
@@ -94,23 +99,38 @@ def train_one_epoch(model, loader, optimizer, device):
             outputs.size(-1)),
             targets.reshape(-1)
             )
-        
+
+        total_loss += loss.item()
+        prediction = outputs.argmax(dim=-1)
+        mask = targets != pad_idx
+
+        correct += (prediction[mask] == targets[mask]).sum().item()
+        total += mask.sum().item()
+
         loss.backward()
         optimizer.step()
 
+        token_acc = 100.0 * correct / max(total, 1)
         if (i + 1) % 10 == 0:
-            print(f"Batch {i+1:5d} training loss: {loss.item():.4f}")
+            print(f"Batch {i+1:5d} training loss: {loss.item():.4f} | Token acc: {token_acc:.2f}")
 
     print("Finished Training")
 
 
 def evaluate(model, loader, device, pad_idx=0):
     """
-    Docstring for evaluate
-    
-    :param model: Description
-    :param loader: Description
-    :param device: Description
+    Trains the model for a single epoch for test/validation dataset.
+
+    Iterates over the dataloader, performs a forward pass with teacher forcing,
+    computes cross-entropy loss, backpropagates, and updates model parameters.
+
+    Args:
+        model (nn.Module): The captioning model to train.
+        loader (DataLoader): Dataloader providing (images, captions) batches. 
+                             Captions are expected to be padded token index tensors.
+        optimizer (torch.optim.Optimizer): Optimizer used to update model parameters.
+        device (torch.device): Device to run training on (CPU or CUDA).
+        pad_idx (optional): ignores the pad
     """
     model.eval()
     loss_function = nn.CrossEntropyLoss(ignore_index=0)
@@ -159,7 +179,7 @@ def main():
 
     train_loader, test_loader, val_loader, vocab = get_dataloaders(batch_size=64, num_workers=0, threshold=2)
     vocab_size = len(vocab.word2idx)
-    num_epoch = 1
+    num_epoch = 2
 
     resnet_model = models.resnet50(weights="IMAGENET1K_V1")
     feat_extract = nn.Sequential(*list(resnet_model.children())[:-1])
@@ -171,11 +191,11 @@ def main():
         print(f"\nEpoch {epoch+1}/{num_epoch}")
         train_one_epoch(model, train_loader, optimizer, device)
 
-        test_loss, test_acc = evaluate(model, test_loader, device)
         val_loss, val_acc = evaluate(model, val_loader, device)
-
-        print(f"Test Loss: {test_loss:.4f} | Token acc: {test_acc:.2f}%")
         print(f"Val  Loss: {val_loss:.4f} | Token acc: {val_acc:.2f}%")
+
+    test_loss, test_acc = evaluate(model, test_loader, device)
+    print(f"Test Loss: {test_loss:.4f} | Token acc: {test_acc:.2f}%")
 
 if __name__ == "__main__":
     main()
