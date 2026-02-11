@@ -86,4 +86,4 @@ def get_dataloaders(batch_size=64, num_workers=2, threshold=2):
         num_workers=num_workers
     )
 
-    return train_loader, test_loader
+    return train_loader, test_loader, vocab

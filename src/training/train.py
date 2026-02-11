@@ -99,6 +99,41 @@ def train_one_epoch(model, loader, optimizer, device):
 
     print("Finished Training")
 
+def evaluate(model, loader, device):
+    """
+    Docstring for evaluate
+    
+    :param model: Description
+    :param loader: Description
+    :param device: Description
+    """
+    model.eval()
+    loss_function = nn.CrossEntropyLoss(ignore_index=0)
+
+    total_loss = 0
+
+    for images, captions in loader:
+        images = images.to(device)
+        captions = captions.to(device).long()
+
+        captions_in = captions[:, :-1]
+        targets = captions[:, 1:]
+
+        outputs = model(images, captions_in)
+        outputs = outputs[:, 1:, :]
+
+        loss = loss_function(
+            outputs.reshape(-1,
+            outputs.size(-1)),
+            targets.reshape(-1)
+        )
+
+        total_loss += loss.item()
+
+    avg_loss = total_loss / len(loader)
+    print(f"Test loss: {avg_loss:.4f}")
+    return avg_loss
+
 def main():
     """
     Entry point for training the image captioning model.
@@ -109,9 +144,9 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using: {device}")
 
-    train_loader, test_loader = get_dataloaders(batch_size=64, num_workers=0, threshold=2)
-
-    vocab_size = 5000
+    train_loader, test_loader,vocab = get_dataloaders(batch_size=64, num_workers=0, threshold=2)
+    vocab_size = len(vocab.word2idx)
+    num_epoch = 1
 
     resnet_model = models.resnet50(weights="IMAGENET1K_V1")
     feat_extract = nn.Sequential(*list(resnet_model.children())[:-1])
@@ -119,8 +154,10 @@ def main():
     model = PhotoCaptioner(feat_extract, vocab_size).to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
 
-    for epoch in range(5):
+    for epoch in range(num_epoch):
+        print(f"\nEpoch {epoch+1}/{num_epoch}")
         train_one_epoch(model, train_loader, optimizer, device)
+        evaluate(model, test_loader, device)
 
 if __name__ == "__main__":
     main()
