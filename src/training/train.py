@@ -33,6 +33,7 @@ class PhotoCaptioner(nn.Module):
         self.decoder = nn.LSTM(input_size=512, hidden_size=512, batch_first=True)
         self.fc_out = nn.Linear(512, vocab_size)
 
+
     def forward(self, images, captions_in):
         """
         Forward pass for caption generation training.
@@ -57,6 +58,7 @@ class PhotoCaptioner(nn.Module):
         outputs, _ = self.decoder(x)
         logits = self.fc_out(outputs)
         return logits    
+
 
 def train_one_epoch(model, loader, optimizer, device):
     """
@@ -96,12 +98,13 @@ def train_one_epoch(model, loader, optimizer, device):
         loss.backward()
         optimizer.step()
 
-        if (i + 1) % 50 == 0:
+        if (i + 1) % 10 == 0:
             print(f"Batch {i+1:5d} training loss: {loss.item():.4f}")
 
     print("Finished Training")
 
-def evaluate(model, loader, device):
+
+def evaluate(model, loader, device, pad_idx=0):
     """
     Docstring for evaluate
     
@@ -112,7 +115,9 @@ def evaluate(model, loader, device):
     model.eval()
     loss_function = nn.CrossEntropyLoss(ignore_index=0)
 
-    total_loss = 0
+    total_loss = 0.0
+    correct = 0
+    total = 0
 
     for images, captions in loader:
         images = images.to(device)
@@ -131,10 +136,16 @@ def evaluate(model, loader, device):
         )
 
         total_loss += loss.item()
+        prediction = outputs.argmax(dim=-1)
+        mask = targets != pad_idx
+
+        correct += (prediction[mask] == targets[mask]).sum().item()
+        total += mask.sum().item()
 
     avg_loss = total_loss / len(loader)
-    print(f"Test loss: {avg_loss:.4f}")
-    return avg_loss
+    token_acc = 100.0 * correct / max(total, 1)
+    
+    return avg_loss, token_acc
 
 def main():
     """
@@ -159,9 +170,12 @@ def main():
     for epoch in range(num_epoch):
         print(f"\nEpoch {epoch+1}/{num_epoch}")
         train_one_epoch(model, train_loader, optimizer, device)
-        evaluate(model, test_loader, device)
-        val_loss = evaluate(model, val_loader, device)
-        print(f"Validation loss: {val_loss:.4f}")
+
+        test_loss, test_acc = evaluate(model, test_loader, device)
+        val_loss, val_acc = evaluate(model, val_loader, device)
+
+        print(f"Test Loss: {test_loss:.4f} | Token acc: {test_acc:.2f}%")
+        print(f"Val  Loss: {val_loss:.4f} | Token acc: {val_acc:.2f}%")
 
 if __name__ == "__main__":
     main()
