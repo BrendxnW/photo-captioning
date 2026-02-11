@@ -71,6 +71,13 @@ def get_dataloaders(batch_size=64, num_workers=2, threshold=2):
         transform=transform
     )
 
+    val_data = Flickr8kDataset(
+        csv_file="data/Validate/validate.csv",
+        root_dir="data/Images",
+        vocab=vocab,
+        transform=transform
+    )
+
     train_loader = torch.utils.data.DataLoader(
         training_data,
         batch_size=batch_size,
@@ -83,7 +90,16 @@ def get_dataloaders(batch_size=64, num_workers=2, threshold=2):
         test_data,
         batch_size=batch_size,
         shuffle=True,
-        num_workers=num_workers
+        num_workers=num_workers,
+        collate_fn=caption_collate_fn
     )
 
-    return train_loader, test_loader, vocab
+    val_loader = torch.utils.data.DataLoader(
+        val_data,
+        batch_size=batch_size,
+        shuffle=True,
+        num_workers=num_workers,
+        collate_fn=caption_collate_fn
+    )
+
+    return train_loader, test_loader, val_loader, vocab

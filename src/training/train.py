@@ -95,7 +95,9 @@ def train_one_epoch(model, loader, optimizer, device):
         
         loss.backward()
         optimizer.step()
-        print(f"Batch {i+1:5d} training loss: {loss.item():.4f}")
+
+        if (i + 1) % 50 == 0:
+            print(f"Batch {i+1:5d} training loss: {loss.item():.4f}")
 
     print("Finished Training")
 
@@ -144,7 +146,7 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using: {device}")
 
-    train_loader, test_loader,vocab = get_dataloaders(batch_size=64, num_workers=0, threshold=2)
+    train_loader, test_loader, val_loader, vocab = get_dataloaders(batch_size=64, num_workers=0, threshold=2)
     vocab_size = len(vocab.word2idx)
     num_epoch = 1
 
@@ -158,6 +160,8 @@ def main():
         print(f"\nEpoch {epoch+1}/{num_epoch}")
         train_one_epoch(model, train_loader, optimizer, device)
         evaluate(model, test_loader, device)
+        val_loss = evaluate(model, val_loader, device)
+        print(f"Validation loss: {val_loss:.4f}")
 
 if __name__ == "__main__":
     main()
