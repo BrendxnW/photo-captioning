@@ -1,7 +1,9 @@
 from torch.utils.data import Dataset
 from PIL import Image
+import torch
 import pandas as pd
 import os
+from src.utils.text import tokenize, Vocabulary
 
 
 class Flickr8kDataset(Dataset):
@@ -13,15 +15,17 @@ class Flickr8kDataset(Dataset):
     Args:
         csv_file (str): Path to the CSV file that consists the image filenames and captions.
         root_dir (str): The root directory that consists all the photos
+        vocab (str): The string
         transform (callable, optional): Optional transform to be applied to each image
     """
 
-    def __init__(self, csv_file, root_dir, transform=None):
+    def __init__(self, csv_file, root_dir, vocab, transform=None):
         """
         Initialize the custom dataset
         """
         self.df = pd.read_csv(csv_file)
         self.root_dir = root_dir
+        self.vocab = vocab
         self.transform = transform
 
     def __len__(self):
@@ -54,4 +58,10 @@ class Flickr8kDataset(Dataset):
         if self.transform:
             image = self.transform(image)
 
-        return image, caption
+        tokens = tokenize(str(caption))
+        caption_ids = [self.vocab.word2idx["<SOS>"]]
+        caption_ids += [self.vocab.token_to_id(tok) for tok in tokens]
+        caption_ids += [self.vocab.word2idx["<EOS>"]]
+
+        caption_tensor = torch.tensor(caption_ids, dtype=torch.long)
+        return image, caption_tensor

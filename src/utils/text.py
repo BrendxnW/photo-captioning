@@ -1,4 +1,5 @@
 import re
+import pandas as pd
 from collections import Counter
 
 
@@ -38,8 +39,8 @@ class Vocabulary:
     def __init__(self, tokens, threshold=2):
         self.threshold = threshold
 
-        self.word2idx = {"<PAD>":0, "UNK":1, "<SOS>":2, "<EOS>":3}
-        self.idx2word = {i:w for w, i in self.padding.items()}
+        self.word2idx = {"<PAD>":0, "<UNK>":1, "<SOS>":2, "<EOS>":3}
+        self.idx2word = {i:w for w, i in self.word2idx.items()}
         self.idx = 4
 
         self.freq = Counter(" ".join(tokens).split())
@@ -55,3 +56,23 @@ class Vocabulary:
 
     def id_to_token(self, idx):
         return self.idx2word.get(idx, "<UNK>")
+    
+
+def build_vocab_from_csv(csv_path, threshold=2):
+    """
+    Docstring for build_vocab_from_csv
+    
+    Args:
+        csv_path: Description
+        threshold: Description
+
+    Returns:
+
+    """
+    df = pd.read_csv(csv_path)
+
+    all_tokens = []
+    for caption in df["caption"].astype(str).tolist():
+        all_tokens.extend(tokenize(caption))
+
+    return Vocabulary(all_tokens, threshold=threshold)

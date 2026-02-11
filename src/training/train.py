@@ -2,7 +2,8 @@ import torch
 import torchvision.models as models
 import torch.nn as nn
 import torch.optim as optim
-from utils.data_loader import get_dataloaders, caption_collate_fn
+from src.utils.data_loader import get_dataloaders, caption_collate_fn
+from src.utils.text import Vocabulary, tokenize
 
 class PhotoCaptioner(nn.Module):
     """
@@ -26,7 +27,9 @@ class PhotoCaptioner(nn.Module):
         for p in self.encoder.parameters():
             p.requires_grad = False
 
-        self.projection = nn.Linear(2048, 512)
+        self.projection = nn.Linear(2048, 512)          # image feats -> 512
+        self.embed = nn.Embedding(vocab_size, 512, padding_idx=0)  # caption ids -> 512
+
         self.decoder = nn.LSTM(input_size=512, hidden_size=512, batch_first=True)
         self.fc_out = nn.Linear(512, vocab_size)
 
@@ -42,18 +45,18 @@ class PhotoCaptioner(nn.Module):
             Tensor: Logits over the vocabulary for each timestep.
         """
         with torch.no_grad():
-            feature = self.encoder(images)
-            feature = torch.flatten(1)
+            feature = self.encoder(images)    
+            feature = torch.flatten(feature, 1)    
 
-        projected_feats = self.projection(feature)
-        projected_caption = self.projection(captions_in)
+        projected_feats = self.projection(feature) 
+        caption_embed = self.embed(captions_in) 
 
         projected_feats = projected_feats.unsqueeze(1)
-        x = torch.cat([projected_feats, projected_caption], dim=1)
+        x = torch.cat([projected_feats, caption_embed], dim=1)
 
         outputs, _ = self.decoder(x)
-        stats = self.fc_out(outputs)
-        return stats    
+        logits = self.fc_out(outputs)
+        return logits    
 
 def train_one_epoch(model, loader, optimizer, device):
     """
@@ -84,9 +87,11 @@ def train_one_epoch(model, loader, optimizer, device):
 
         outputs = outputs[:, 1:, :]
 
-        loss = loss_function(-1, outputs.size(-1),
-                             targets.reshape(-1)
-                             )
+        loss = loss_function(
+            outputs.reshape(-1,
+            outputs.size(-1)),
+            targets.reshape(-1)
+            )
         
         loss.backward()
         optimizer.step()
@@ -104,7 +109,7 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using: {device}")
 
-    train_loader, test_loader = get_dataloaders(batch_size=64, num_workers=0)
+    train_loader, test_loader = get_dataloaders(batch_size=64, num_workers=0, threshold=2)
 
     vocab_size = 5000
 
