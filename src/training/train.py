@@ -111,8 +111,8 @@ def train_one_epoch(model, loader, optimizer, device, pad_idx=0):
         optimizer.step()
 
         token_acc = 100.0 * correct / max(total, 1)
-        if (i + 1) % 10 == 0:
-            print(f"Batch {i+1:5d} training loss: {loss.item():.4f} | Token acc: {token_acc:.2f}")
+        if (i + 1) % 50 == 0:
+            print(f"Batch {i+1:5d} training loss: {loss.item():.4f} | Token acc: {token_acc:.2f}%")
 
     print("Finished Training")
 
@@ -179,13 +179,18 @@ def main():
 
     train_loader, test_loader, val_loader, vocab = get_dataloaders(batch_size=64, num_workers=0, threshold=2)
     vocab_size = len(vocab.word2idx)
-    num_epoch = 2
+    num_epoch = 30
 
     resnet_model = models.resnet50(weights="IMAGENET1K_V1")
     feat_extract = nn.Sequential(*list(resnet_model.children())[:-1])
     
     model = PhotoCaptioner(feat_extract, vocab_size).to(device)
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
+    optimizer = torch.optim.Adam(model.parameters(), lr=3e-4)
+
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode="min", factor=0.5, patience=2)
+    best_val = float("inf")
+    patience = 4
+    bad_epoch = 0
 
     for epoch in range(num_epoch):
         print(f"\nEpoch {epoch+1}/{num_epoch}")
@@ -194,6 +199,19 @@ def main():
         val_loss, val_acc = evaluate(model, val_loader, device)
         print(f"Val  Loss: {val_loss:.4f} | Token acc: {val_acc:.2f}%")
 
+        scheduler.step(val_loss)
+
+        if val_loss < best_val - 1e-3:
+            best_val = val_loss
+            bad_epoch = 0
+            torch.save(model.state_dict(), "best.pt")
+        else:
+            bad_epoch += 1
+            if bad_epoch >= patience:
+                print("Early Stopping")
+                break
+
+    model.load_state_dict(torch.load("best.pt", map_location=device))
     test_loss, test_acc = evaluate(model, test_loader, device)
     print(f"Test Loss: {test_loss:.4f} | Token acc: {test_acc:.2f}%")
 

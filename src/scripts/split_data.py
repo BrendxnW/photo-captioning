@@ -12,6 +12,6 @@ train_df = df[df["image"].isin(train_img)]
 test_df = df[df["image"].isin(test_img)]
 val_df = df[df["image"].isin(val_img)]
 
-train_df.to_csv("data/Train/train.csv", index=False)
-test_df.to_csv("data/Test/test.csv", index=False)
-val_df.to_csv("data/Validate/validate.csv", index=False)
+train_df.to_csv("src/data/Train/train.csv", index=False)
+test_df.to_csv("src/data/Test/test.csv", index=False)
+val_df.to_csv("src/data/Validate/validate.csv", index=False)
