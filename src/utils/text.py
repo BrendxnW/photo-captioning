@@ -1,6 +1,7 @@
 import re
 import pandas as pd
 from collections import Counter
+import pickle
 
 
 def tokenize(text):
@@ -76,3 +77,11 @@ def build_vocab_from_csv(csv_path, threshold=2):
         all_tokens.extend(tokenize(caption))
 
     return Vocabulary(all_tokens, threshold=threshold)
+
+def save_vocab(vocab, path="vocab.pkl"):
+    with open(path, "wb") as f:
+        pickle.dump(vocab, f)
+
+def load_vocab(path="vocab.pkl"):
+    with open(path, "rb") as f:
+        return pickle.load(f)

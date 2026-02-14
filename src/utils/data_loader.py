@@ -1,10 +1,16 @@
 import torch
+import os
 from torchvision import transforms
 from torch.utils.data import DataLoader
 from torch.nn.utils.rnn import pad_sequence
 from src.dataset.flickr8k_dataset import Flickr8kDataset
-from src.utils.text import Vocabulary, tokenize, build_vocab_from_csv
+from src.utils.text import build_vocab_from_csv
+from src.utils.text import save_vocab
 
+
+vocab = build_vocab_from_csv("data/Train/train.csv", threshold=2)
+if not os.path.exists("vocab.pkl"):
+    save_vocab(vocab, "vocab.pkl")
 
 def caption_collate_fn(batch):
     """
@@ -36,7 +42,7 @@ def caption_collate_fn(batch):
     return images, captions
 
 
-def get_dataloaders(batch_size=64, num_workers=2, threshold=2):
+def get_dataloaders(batch_size=64, num_workers=2):
     """
     Creates DataLoaders for the Flickr8k training and test datasets.
 
@@ -49,8 +55,6 @@ def get_dataloaders(batch_size=64, num_workers=2, threshold=2):
         num_workers (int): Number of subprocesses used for data loading.
         threshold (int):
     """
-
-    vocab = build_vocab_from_csv("data/Train/train.csv", threshold=threshold)
 
     transform = transforms.Compose([
         transforms.Resize((224, 224)),

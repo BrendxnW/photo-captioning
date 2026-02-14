@@ -2,8 +2,8 @@ import torch
 import torchvision.models as models
 import torch.nn as nn
 import torch.optim as optim
-from src.utils.data_loader import get_dataloaders, caption_collate_fn
-from src.utils.text import Vocabulary, tokenize
+from src.utils.data_loader import get_dataloaders
+
 
 class PhotoCaptioner(nn.Module):
     """
@@ -27,10 +27,10 @@ class PhotoCaptioner(nn.Module):
         for p in self.encoder.parameters():
             p.requires_grad = False
 
-        self.projection = nn.Linear(2048, 512)          # image feats -> 512
-        self.embed = nn.Embedding(vocab_size, 512, padding_idx=0)  # caption ids -> 512
+        self.projection = nn.Linear(2048, 512)
+        self.embed = nn.Embedding(vocab_size, 512, padding_idx=0)
 
-        self.decoder = nn.LSTM(input_size=512, hidden_size=512, batch_first=True)
+        self.decoder = nn.LSTM(input_size=512, hidden_size=512, num_layers=2, batch_first=True, dropout=0.2)
         self.fc_out = nn.Linear(512, vocab_size)
 
 
@@ -76,7 +76,7 @@ def train_one_epoch(model, loader, optimizer, device, pad_idx=0):
         pad_idx (optional): ignores the pad
     """
     model.train()
-    loss_function = nn.CrossEntropyLoss(ignore_index=0)
+    loss_function = nn.CrossEntropyLoss(ignore_index=pad_idx, label_smoothing=0.05)
 
     total_loss = 0.0
     correct = 0
@@ -177,7 +177,7 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using: {device}")
 
-    train_loader, test_loader, val_loader, vocab = get_dataloaders(batch_size=64, num_workers=0, threshold=2)
+    train_loader, test_loader, val_loader, vocab = get_dataloaders(batch_size=64, num_workers=0)
     vocab_size = len(vocab.word2idx)
     num_epoch = 30
 
@@ -185,7 +185,7 @@ def main():
     feat_extract = nn.Sequential(*list(resnet_model.children())[:-1])
     
     model = PhotoCaptioner(feat_extract, vocab_size).to(device)
-    optimizer = torch.optim.Adam(model.parameters(), lr=3e-4)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=3e-4, weight_decay=1e-3)
 
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode="min", factor=0.5, patience=2)
     best_val = float("inf")
@@ -200,6 +200,7 @@ def main():
         print(f"Val  Loss: {val_loss:.4f} | Token acc: {val_acc:.2f}%")
 
         scheduler.step(val_loss)
+        print("LR now:", optimizer.param_groups[0]["lr"])
 
         if val_loss < best_val - 1e-3:
             best_val = val_loss
