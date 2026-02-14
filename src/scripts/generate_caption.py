@@ -17,6 +17,11 @@ EOS = "<EOS>"
 
 
 def load_image(image_path):
+    """
+    Docstring for load_image
+    
+    :param image_path: Description
+    """
     transform = T.Compose([
         T.Resize((224, 224)),
         T.ToTensor(),
@@ -29,6 +34,9 @@ def load_image(image_path):
 
 @torch.no_grad()
 def generate_caption(model, image, vocab, max_len=30):
+    """
+    
+    """
     model.eval()
     device = next(model.parameters()).device
     image = image.to(device)
@@ -66,6 +74,11 @@ def generate_caption(model, image, vocab, max_len=30):
 
 
 def build_model(vocab_size):
+    """
+    Docstring for build_model
+    
+    :param vocab_size: Description
+    """
     resnet = models.resnet50(weights="IMAGENET1K_V1")
     encoder = nn.Sequential(*list(resnet.children())[:-1])
     model = PhotoCaptioner(encoder, vocab_size=vocab_size)
@@ -79,21 +92,17 @@ def main():
     parser.add_argument("--captions_csv", type=str, required=True, help="CSV used to build vocab")
     args = parser.parse_args()
 
-    # Load vocab
     vocab = load_vocab("vocab.pkl")
     vocab_size = len(vocab.word2idx)
 
-    # Load model
     model = build_model(vocab_size).to(DEVICE)
     model.load_state_dict(torch.load(args.ckpt, map_location=DEVICE))
 
-    # Load image
     image = load_image(args.image)
 
-    # Generate caption
     caption = generate_caption(model, image, vocab, max_len=MAX_LEN)
-    print("\n🖼️ Image:", args.image)
-    print("📝 Caption:", caption)
+    print("\nImage:", args.image)
+    print("Caption:", caption)
 
 
 if __name__ == "__main__":

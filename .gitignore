@@ -208,4 +208,7 @@ __marimo__/
 
 
 data/
+*.pkl
+*.pt
+
 **/tempCodeRunnerFile.py
