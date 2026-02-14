@@ -1,16 +1,16 @@
 <h1 align="center">Photo Captioning Bot</h1>
 <p align="center">
-  <strong>Offline CNN–LSTM image captioning in PyTorch<br>
-  Local. Private. Fast.</strong>
+  <strong>Offline CNN–LSTM image captioning in PyTorch</strong>
 </p>
 <p align="center">
   An offline image captioning model built with PyTorch that generates short, relevant captions for photos using a CNN–LSTM pipeline.  
   Designed as a local, privacy-friendly baseline for multimodal learning and experimentation.
 </p>
 <p align="center">
-  <img src="https://img.shields.io/badge/PyTorch-2.10-orange" />
-  <img src="https://img.shields.io/badge/Python-3.13.7-blue" />
+  <img src="https://img.shields.io/badge/Python-3.13.7-blue?logo=python&logoColor=white" />
+  <img src="https://img.shields.io/badge/PyTorch-2.10-orange?logo=pytorch&logoColor=white" />
   <img src="https://img.shields.io/badge/Status-Educational-green" />
+
 </p>
 
 ## Table of Contents
