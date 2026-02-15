@@ -2,8 +2,8 @@ import argparse
 import torch
 from PIL import Image
 import torchvision.transforms as T
-from src.training.train import PhotoCaptioner   # adjust import path
-from src.utils.text import build_vocab_from_csv  # or however you load vocab
+from src.training.train import PhotoCaptioner
+from src.utils.text import build_vocab_from_csv 
 from torchvision import models
 import torch.nn as nn
 from src.utils.text import load_vocab
@@ -48,6 +48,7 @@ def generate_caption(model, image, vocab, max_len=30):
 
     sos_idx = vocab.word2idx["<SOS>"]
     eos_idx = vocab.word2idx["<EOS>"]
+    unk_idx = vocab.word2idx.get("<UNK>", None)
 
     generated = []
     prev_token = torch.tensor([[sos_idx]], device=device)  # [1, 1]
@@ -61,7 +62,9 @@ def generate_caption(model, image, vocab, max_len=30):
         x = torch.cat([projected_step, emb], dim=1)   # [1, 2, 512]
 
         outputs, hidden = model.decoder(x, hidden)
-        logits = model.fc_out(outputs[:, -1, :])      # [1, vocab]
+        logits = model.fc_out(outputs[:, -1, :])
+        if unk_idx is not None:
+            logits[0, unk_idx] = -1e9
         next_id = logits.argmax(dim=-1).item()
 
         if next_id == eos_idx:
@@ -73,15 +76,16 @@ def generate_caption(model, image, vocab, max_len=30):
     return " ".join(vocab.idx2word[i] for i in generated)
 
 
-def build_model(vocab_size):
+def build_model(vocab_size, pad_idx):
     """
     Docstring for build_model
     
     :param vocab_size: Description
     """
     resnet = models.resnet50(weights="IMAGENET1K_V1")
+    resnet.fc = nn.Identity()
     encoder = nn.Sequential(*list(resnet.children())[:-1])
-    model = PhotoCaptioner(encoder, vocab_size=vocab_size)
+    model = PhotoCaptioner(encoder, vocab_size=vocab_size, pad_idx=pad_idx)
     return model
 
 
@@ -95,7 +99,8 @@ def main():
     vocab = load_vocab("vocab.pkl")
     vocab_size = len(vocab.word2idx)
 
-    model = build_model(vocab_size).to(DEVICE)
+    pad_idx = vocab.word2idx["<PAD>"]
+    model = build_model(vocab_size, pad_idx).to(DEVICE)
     model.load_state_dict(torch.load(args.ckpt, map_location=DEVICE))
 
     image = load_image(args.image)
