@@ -2,6 +2,8 @@ import torch
 import torchvision.models as models
 import torch.nn as nn
 import torch.optim as optim
+import pandas as pd
+import matplotlib.pyplot as plt
 from src.utils.data_loader import get_dataloaders
 
 
@@ -111,11 +113,13 @@ def train_one_epoch(model, loader, optimizer, device, pad_idx=0):
         loss.backward()
         optimizer.step()
 
+        avg_loss = total_loss / len(loader)
         token_acc = 100.0 * correct / max(total, 1)
         if (i + 1) % 50 == 0:
             print(f"Batch {i+1:5d} training loss: {loss.item():.4f} | Token acc: {token_acc:.2f}%")
 
     print("Finished Training")
+    return avg_loss, token_acc
 
 
 def evaluate(model, loader, device, pad_idx=0):
@@ -140,27 +144,28 @@ def evaluate(model, loader, device, pad_idx=0):
     correct = 0
     total = 0
 
-    for images, captions in loader:
-        images = images.to(device)
-        captions = captions.to(device).long()
+    with torch.no_grad():
+        for images, captions in loader:
+            images = images.to(device)
+            captions = captions.to(device).long()
 
-        captions_in = captions[:, :-1]
-        targets = captions[:, 1:]
+            captions_in = captions[:, :-1]
+            targets = captions[:, 1:]
 
-        outputs = model(images, captions_in)
-        outputs = outputs[:, 1:, :]
+            outputs = model(images, captions_in)
+            outputs = outputs[:, 1:, :]
 
-        loss = loss_function(
-            outputs.reshape(-1, outputs.size(-1)),
-            targets.reshape(-1)
-        )
+            loss = loss_function(
+                outputs.reshape(-1, outputs.size(-1)),
+                targets.reshape(-1)
+            )
 
-        total_loss += loss.item()
-        prediction = outputs.argmax(dim=-1)
-        mask = targets != pad_idx
+            total_loss += loss.item()
+            prediction = outputs.argmax(dim=-1)
+            mask = targets != pad_idx
 
-        correct += (prediction[mask] == targets[mask]).sum().item()
-        total += mask.sum().item()
+            correct += (prediction[mask] == targets[mask]).sum().item()
+            total += mask.sum().item()
 
     avg_loss = total_loss / len(loader)
     token_acc = 100.0 * correct / max(total, 1)
@@ -179,7 +184,7 @@ def main():
 
     train_loader, test_loader, val_loader, vocab = get_dataloaders(batch_size=64, num_workers=0)
     vocab_size = len(vocab.word2idx)
-    num_epoch = 50
+    num_epoch = 3
     pad_idx = vocab.word2idx["<PAD>"]
 
     resnet_model = models.resnet50(weights="IMAGENET1K_V1")
@@ -190,15 +195,20 @@ def main():
 
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode="min", factor=0.5, patience=2)
     best_val = float("inf")
-    patience = 8
-    bad_epoch = 0
-    min_epoch = 10
+
+    train_losses, val_losses = [], []
+    train_accs, val_accs = [], []
+
 
     for epoch in range(num_epoch):
         print(f"\nEpoch {epoch+1}/{num_epoch}")
-        train_one_epoch(model, train_loader, optimizer, device)
 
-        val_loss, val_acc = evaluate(model, val_loader, device)
+        tr_loss, tr_acc = train_one_epoch(model, train_loader, optimizer, device, pad_idx=pad_idx)
+        val_loss, val_acc = evaluate(model, val_loader, device, pad_idx=pad_idx)
+
+        train_losses.append(tr_loss); train_accs.append(tr_acc)
+        val_losses.append(val_loss);   val_accs.append(val_acc)
+        print(f"Train Loss: {tr_loss:.4f} | Train Token acc avg: {tr_acc:.2f}%")
         print(f"Val  Loss: {val_loss:.4f} | Token acc: {val_acc:.2f}%")
 
         scheduler.step(val_loss)
@@ -206,9 +216,39 @@ def main():
 
         if val_loss < best_val - 1e-3:
             best_val = val_loss
-            bad_epoch = 0
-            torch.save(model.state_dict(), "best.pt")
+            torch.save(model.state_dict(), "best_v3.pt")
 
+    metrics = pd.DataFrame({
+        "epoch": list(range(1, num_epoch + 1)),
+        "train_loss": train_losses,
+        "val_loss": val_losses,
+        "train_token_acc": train_accs,
+        "val_token_acc": val_accs,
+    })
+    metrics.to_csv("learning_curve.csv", index=False)
+    # plot loss curve
+    plt.figure()
+    plt.plot(metrics["epoch"], metrics["train_loss"], label="Train Loss")
+    plt.plot(metrics["epoch"], metrics["val_loss"], label="Val Loss")
+    plt.xlabel("Epoch")
+    plt.ylabel("Loss")
+    plt.title("Learning Curve (Loss)")
+    plt.legend()
+    plt.grid(True)
+    plt.savefig("loss_curve.png", dpi=200)
+    plt.show()
+
+    # plot accuracy curve (optional)
+    plt.figure()
+    plt.plot(metrics["epoch"], metrics["train_token_acc"], label="Train Token Acc")
+    plt.plot(metrics["epoch"], metrics["val_token_acc"], label="Val Token Acc")
+    plt.xlabel("Epoch")
+    plt.ylabel("Token Accuracy (%)")
+    plt.title("Learning Curve (Token Accuracy)")
+    plt.legend()
+    plt.grid(True)
+    plt.savefig("acc_curve.png", dpi=200)
+    plt.show()
 
     model.load_state_dict(torch.load("best.pt", map_location=device))
     test_loss, test_acc = evaluate(model, test_loader, device)

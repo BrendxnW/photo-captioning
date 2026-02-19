@@ -71,6 +71,7 @@ def build_vocab_from_csv(csv_path, threshold=2):
 
     """
     df = pd.read_csv(csv_path)
+    df = df.dropna(subset=["caption"])
 
     all_tokens = []
     for caption in df["caption"].astype(str).tolist():

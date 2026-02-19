@@ -4,7 +4,7 @@ import pandas as pd
 from torchvision import transforms
 from torch.utils.data import DataLoader, ConcatDataset
 from torch.nn.utils.rnn import pad_sequence
-from dataset.flickr_dataset import FlickrDataset
+from src.dataset.flickr_dataset import FlickrDataset
 from src.utils.text import build_vocab_from_csv
 from src.utils.text import save_vocab, load_vocab
 
@@ -12,8 +12,8 @@ from src.utils.text import save_vocab, load_vocab
 if os.path.exists("vocab.pkl"):
     vocab = load_vocab("vocab.pkl")
 else:
-    train8 = pd.read_csv("data/flicker8k/Train/train.csv")
-    train30 = pd.read_csv("data/flicker30k/Train/train.csv")
+    train8 = pd.read_csv("data/flickr8k/Train/train.csv")
+    train30 = pd.read_csv("data/flickr30k/Train/train.csv")
     train_all = pd.concat([train8, train30], ignore_index=True)
     train_all.to_csv("data/train_combined.csv", index=False)
 
@@ -70,43 +70,43 @@ def get_dataloaders(batch_size=64, num_workers=2):
     ])
 
     training_data_8k = FlickrDataset(
-        csv_file="data/flicker8k/Train/train.csv",
-        root_dir="data/Images",
+        csv_file="data/flickr8k/Train/train.csv",
+        root_dir="data/flickr8k/Images/",
         vocab=vocab,
         transform=transform
     )
 
     test_data_8k = FlickrDataset(
-        csv_file="data/flicker8k/Test/test.csv",
-        root_dir="data/Images",
+        csv_file="data/flickr8k/Test/test.csv",
+        root_dir="data/flickr8k/Images/",
         vocab=vocab,
         transform=transform
     )
 
     val_data_8k = FlickrDataset(
-        csv_file="data/flicker8k/Validate/validate.csv",
-        root_dir="data/Images",
+        csv_file="data/flickr8k/Validate/validate.csv",
+        root_dir="data/flickr8k/Images/",
         vocab=vocab,
         transform=transform
     )
 
     training_data_30k = FlickrDataset(
-        csv_file="data/flicker30k/Train/train.csv",
-        root_dir="data/Images",
+        csv_file="data/flickr30k/Train/train.csv",
+        root_dir="data/flickr30k/Images/",
         vocab=vocab,
         transform=transform
     )
 
     test_data_30k = FlickrDataset(
-        csv_file="data/flicker30k/Test/test.csv",
-        root_dir="data/Images",
+        csv_file="data/flickr30k/Test/test.csv",
+        root_dir="data/flickr30k/Images/",
         vocab=vocab,
         transform=transform
     )
 
     val_data_30k = FlickrDataset(
-        csv_file="data/flicker30k/Validate/validate.csv",
-        root_dir="data/Images",
+        csv_file="data/flickr30k/Validate/validate.csv",
+        root_dir="data/flickr30k/Images/",
         vocab=vocab,
         transform=transform
     )
@@ -126,7 +126,7 @@ def get_dataloaders(batch_size=64, num_workers=2):
     test_loader = torch.utils.data.DataLoader(
         test_ds,
         batch_size=batch_size,
-        shuffle=True,
+        shuffle=False,
         num_workers=num_workers,
         collate_fn=caption_collate_fn
     )
@@ -134,7 +134,7 @@ def get_dataloaders(batch_size=64, num_workers=2):
     val_loader = torch.utils.data.DataLoader(
         val_ds,
         batch_size=batch_size,
-        shuffle=True,
+        shuffle=False,
         num_workers=num_workers,
         collate_fn=caption_collate_fn
     )
