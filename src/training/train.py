@@ -179,14 +179,14 @@ def main():
 
     train_loader, test_loader, val_loader, vocab = get_dataloaders(batch_size=64, num_workers=0)
     vocab_size = len(vocab.word2idx)
-    num_epoch = 30
+    num_epoch = 50
     pad_idx = vocab.word2idx["<PAD>"]
 
     resnet_model = models.resnet50(weights="IMAGENET1K_V1")
     feat_extract = nn.Sequential(*list(resnet_model.children())[:-1])
     
     model = PhotoCaptioner(feat_extract, vocab_size, pad_idx).to(device)
-    optimizer = torch.optim.AdamW(model.parameters(), lr=3e-4, weight_decay=1e-3)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=5e-6, weight_decay=1e-3)
 
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode="min", factor=0.5, patience=2)
     best_val = float("inf")
@@ -208,12 +208,7 @@ def main():
             best_val = val_loss
             bad_epoch = 0
             torch.save(model.state_dict(), "best.pt")
-        else:
-            if epoch + 1 >= min_epoch:
-                bad_epoch += 1 
-                if bad_epoch >= patience:
-                    print("Early Stopping")
-                    break
+
 
     model.load_state_dict(torch.load("best.pt", map_location=device))
     test_loss, test_acc = evaluate(model, test_loader, device)

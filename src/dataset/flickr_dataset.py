@@ -6,7 +6,7 @@ import os
 from src.utils.text import tokenize, Vocabulary
 
 
-class Flickr8kDataset(Dataset):
+class FlickrDataset(Dataset):
     """
     Custom photo captioning dataset.
     
