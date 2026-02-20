@@ -33,7 +33,7 @@ def load_image(image_path):
 
 
 @torch.no_grad()
-def generate_caption(model, image, vocab, max_len=30):
+def generate_caption(model, image, vocab, max_len=MAX_LEN):
     """
     
     """

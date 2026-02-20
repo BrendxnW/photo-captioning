@@ -71,21 +71,21 @@ def get_dataloaders(batch_size=64, num_workers=2):
 
     training_data_8k = FlickrDataset(
         csv_file="data/flickr8k/Train/train.csv",
-        root_dir="data/flickr8k/Images/",
+        root_dir="data/flickr8k/Images/Images/",
         vocab=vocab,
         transform=transform
     )
 
     test_data_8k = FlickrDataset(
         csv_file="data/flickr8k/Test/test.csv",
-        root_dir="data/flickr8k/Images/",
+        root_dir="data/flickr8k/Images/Images/",
         vocab=vocab,
         transform=transform
     )
 
     val_data_8k = FlickrDataset(
         csv_file="data/flickr8k/Validate/validate.csv",
-        root_dir="data/flickr8k/Images/",
+        root_dir="data/flickr8k/Images/Images/",
         vocab=vocab,
         transform=transform
     )

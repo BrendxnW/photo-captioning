@@ -184,14 +184,14 @@ def main():
 
     train_loader, test_loader, val_loader, vocab = get_dataloaders(batch_size=64, num_workers=0)
     vocab_size = len(vocab.word2idx)
-    num_epoch = 3
+    num_epoch = 50
     pad_idx = vocab.word2idx["<PAD>"]
 
     resnet_model = models.resnet50(weights="IMAGENET1K_V1")
     feat_extract = nn.Sequential(*list(resnet_model.children())[:-1])
     
     model = PhotoCaptioner(feat_extract, vocab_size, pad_idx).to(device)
-    optimizer = torch.optim.AdamW(model.parameters(), lr=5e-6, weight_decay=1e-3)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4, weight_decay=1e-3)
 
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode="min", factor=0.5, patience=2)
     best_val = float("inf")
@@ -250,7 +250,8 @@ def main():
     plt.savefig("acc_curve.png", dpi=200)
     plt.show()
 
-    model.load_state_dict(torch.load("best.pt", map_location=device))
+    model.load_state_dict(torch.load("best_v3.pt", map_location=device))
+    print("MOdel loaded")
     test_loss, test_acc = evaluate(model, test_loader, device)
     print(f"Test Loss: {test_loss:.4f} | Token acc: {test_acc:.2f}%")
 
