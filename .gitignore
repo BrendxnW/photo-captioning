@@ -208,6 +208,7 @@ __marimo__/
 
 
 data/
+graphs/
 *.pkl
 *.pt
 

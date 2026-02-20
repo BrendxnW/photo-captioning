@@ -4,6 +4,7 @@ import torch.nn as nn
 import torch.optim as optim
 import pandas as pd
 import matplotlib.pyplot as plt
+import argparse
 from src.utils.data_loader import get_dataloaders
 
 
@@ -21,7 +22,7 @@ class PhotoCaptioner(nn.Module):
     """
     def __init__(self, encoder, vocab_size, pad_idx):
         """
-        Initializes the PhotoCaptioner model..
+        Initializes the PhotoCaptioner model.
         """
         super().__init__()
         self.encoder = encoder
@@ -179,22 +180,54 @@ def main():
     Creates the device, builds dataloaders, constructs a ResNet-based encoder,
     initializes the PhotoCaptioner model, and trains for a fixed number of epochs.
     """
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--finetune", action="store_true")
+    parser.add_argument("--resume_ckpt", type=str, default=None)
+    args = parser.parse_args()
+
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using: {device}")
 
-    train_loader, test_loader, val_loader, vocab = get_dataloaders(batch_size=64, num_workers=0)
+    train_loader, test_loader, val_loader, vocab = get_dataloaders(batch_size=64, num_workers=4)
     vocab_size = len(vocab.word2idx)
-    num_epoch = 50
+    num_epoch = 10
+    base_lr = 1e-5
     pad_idx = vocab.word2idx["<PAD>"]
 
     resnet_model = models.resnet50(weights="IMAGENET1K_V1")
     feat_extract = nn.Sequential(*list(resnet_model.children())[:-1])
     
     model = PhotoCaptioner(feat_extract, vocab_size, pad_idx).to(device)
-    optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4, weight_decay=1e-3)
+    
+    if args.resume_ckpt:
+        model.load_state_dict(torch.load(args.resume_ckpt, map_location=device))
+
+    if args.finetune:
+        for p in model.encoder.parameters():
+            p.requires_grad = False
+
+        model.encoder[7].train()
+        for p in model.encoder[7].parameters():
+            p.requires_grad = True
+
+
+    if args.finetune:
+        optimizer = torch.optim.AdamW([
+            {"params": list(model.encoder[7].parameters()), "lr": 5e-6},
+            {"params": list(model.projection.parameters())
+                    + list(model.embed.parameters())
+                    + list(model.decoder.parameters())
+                    + list(model.fc_out.parameters()), "lr": 6e-5},
+        ], weight_decay=1e-4)
+    else:
+        optimizer = torch.optim.AdamW(model.parameters(), lr=base_lr, weight_decay=1e-4)
 
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode="min", factor=0.5, patience=2)
     best_val = float("inf")
+
+    if args.finetune:
+        model.encoder.eval()       # freeze BN running stats globally
+        model.encoder[7].train()
 
     train_losses, val_losses = [], []
     train_accs, val_accs = [], []
@@ -212,11 +245,14 @@ def main():
         print(f"Val  Loss: {val_loss:.4f} | Token acc: {val_acc:.2f}%")
 
         scheduler.step(val_loss)
-        print("LR now:", optimizer.param_groups[0]["lr"])
+        if args.finetune:
+            print("Encoder LR:", optimizer.param_groups[0]["lr"], "| Decoder LR:", optimizer.param_groups[1]["lr"])
+        else:
+            print("LR now:", optimizer.param_groups[0]["lr"])
 
-        if val_loss < best_val - 1e-3:
+        if val_loss < best_val:
             best_val = val_loss
-            torch.save(model.state_dict(), "best_v3.pt")
+            torch.save(model.state_dict(), "best_v4_finetune.pt")
 
     metrics = pd.DataFrame({
         "epoch": list(range(1, num_epoch + 1)),
@@ -250,8 +286,8 @@ def main():
     plt.savefig("acc_curve.png", dpi=200)
     plt.show()
 
-    model.load_state_dict(torch.load("best_v3.pt", map_location=device))
-    print("MOdel loaded")
+    model.load_state_dict(torch.load("best_v4_finetune.pt", map_location=device))
+    print("Model loaded")
     test_loss, test_acc = evaluate(model, test_loader, device)
     print(f"Test Loss: {test_loss:.4f} | Token acc: {test_acc:.2f}%")
 
