@@ -44,7 +44,7 @@ class Vocabulary:
         self.idx2word = {i:w for w, i in self.word2idx.items()}
         self.idx = 4
 
-        self.freq = Counter(" ".join(tokens).split())
+        self.freq = Counter(tokens)
 
         for word, count in self.freq.items():
             if count >= self.threshold:
@@ -71,6 +71,7 @@ def build_vocab_from_csv(csv_path, threshold=2):
 
     """
     df = pd.read_csv(csv_path)
+    df = df.dropna(subset=["caption"])
 
     all_tokens = []
     for caption in df["caption"].astype(str).tolist():

@@ -3,10 +3,11 @@ from PIL import Image
 import torch
 import pandas as pd
 import os
+from pathlib import Path
 from src.utils.text import tokenize, Vocabulary
 
 
-class Flickr8kDataset(Dataset):
+class FlickrDataset(Dataset):
     """
     Custom photo captioning dataset.
     
@@ -49,10 +50,23 @@ class Flickr8kDataset(Dataset):
                 - Image (tensor): the transformed image
                 - Captions (str): the corresponding caption
         """
-        img_file = self.df.loc[idx, "image"]
+        img_file = str(self.df.loc[idx, "image"]).strip()
         caption = self.df.loc[idx, "caption"]
 
-        img_path = os.path.join(self.root_dir, img_file)
+        # In case CSV has "Images/xxx.jpg" or "flickr8k/Images/xxx.jpg", keep only filename
+        img_file = os.path.basename(img_file)
+
+        img_path = Path(self.root_dir) / img_file
+
+        if not img_path.exists():
+            raise FileNotFoundError(
+                f"Missing image file.\n"
+                f"root_dir: {self.root_dir}\n"
+                f"img_file: {repr(img_file)}\n"
+                f"full_path: {img_path}\n"
+                f"idx: {idx}"
+            )
+
         image = Image.open(img_path).convert("RGB")
 
         if self.transform:
